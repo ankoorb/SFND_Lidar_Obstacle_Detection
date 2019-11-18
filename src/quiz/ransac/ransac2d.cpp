@@ -135,7 +135,7 @@ std::unordered_set<int> RansacPlane(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, i
         }
 
         // Initialize iterator to unordered_set
-        std::unordered_set<int>::iterator idxPtr = indices.begin();
+        auto idxPtr = indices.begin();
         int pt1 = *idxPtr;
         idxPtr++;
         int pt2 = *idxPtr;
@@ -143,20 +143,18 @@ std::unordered_set<int> RansacPlane(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, i
         int pt3 = *idxPtr;
 
         // Define 2 vectors w/ pt1 as reference
-        pcl::PointXYZ v1;
-        v1.x = cloud->points[pt2].x - cloud->points[pt1].x;
-        v1.y = cloud->points[pt2].y - cloud->points[pt1].y;
-        v1.z = cloud->points[pt2].z - cloud->points[pt1].z;
+        double v1x = cloud->points[pt2].x - cloud->points[pt1].x;
+        double v1y = cloud->points[pt2].y - cloud->points[pt1].y;
+        double v1z = cloud->points[pt2].z - cloud->points[pt1].z;
 
-        pcl::PointXYZ v2;
-        v2.x = cloud->points[pt3].x - cloud->points[pt1].x;
-        v2.y = cloud->points[pt3].y - cloud->points[pt1].y;
-        v2.z = cloud->points[pt3].z - cloud->points[pt1].z;
+        double v2x = cloud->points[pt3].x - cloud->points[pt1].x;
+        double v2y = cloud->points[pt3].y - cloud->points[pt1].y;
+        double v2z = cloud->points[pt3].z - cloud->points[pt1].z;
 
         // Fit line
-        double A = v1.y * v2.z - v1.z * v2.y;
-        double B = v1.z * v2.x - v1.x * v2.z;
-        double C = v1.x * v2.y - v1.y * v2.x;
+        double A = v1y * v2z - v1z * v2y;
+        double B = v1z * v2x - v1x * v2z;
+        double C = v1x * v2y - v1y * v2x;
         double D = -(A * cloud->points[pt1].x + B * cloud->points[pt1].y + C * cloud->points[pt1].z);
 
         // Measure distance between every point and fitted line
