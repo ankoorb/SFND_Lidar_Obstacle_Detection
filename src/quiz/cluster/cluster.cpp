@@ -5,7 +5,6 @@
 #include "../../render/box.h"
 #include <chrono>
 #include <string>
-#include <unordered_set>
 #include "kdtree.h"
 
 // Arguments:
@@ -76,22 +75,21 @@ void render2DTree(Node* node, pcl::visualization::PCLVisualizer::Ptr& viewer, Bo
 
 }
 
-void proximity(const std::vector<std::vector<float>>& points, int id, std::unordered_set<int>* processed, std::vector<int>* cluster, KdTree* tree, float distanceTol){
+void proximity(const std::vector<std::vector<float>>& points, int id, std::vector<bool>& processed, std::vector<int>* cluster, KdTree* tree, float distanceTol){
 
     // Mark point as processed
-    processed->emplace(id);
+    processed[id] = true;
 
     // Add point id to cluster
     cluster->emplace_back(id);
 
     // Find nearby points to point at index id
-    const std::vector<float>& point = points.at(id);
-    std::vector<int> nearbyPoints = tree->search(point, distanceTol);
+    std::vector<int> nearbyPoints = tree->search(points.at(id), distanceTol);
 
     for (auto idx : nearbyPoints){
 
         // If point has not been processed then recursively call proximity
-        if (processed->find(idx) == processed->end()){
+        if (!processed[idx]){
             proximity(points, idx, processed, cluster, tree, distanceTol);
         }
     }
@@ -104,14 +102,14 @@ std::vector<std::vector<int>> euclideanCluster(const std::vector<std::vector<flo
 
 	std::vector<std::vector<int>> clusters;
 
-	std::unordered_set<int> processed;  // For checking if a point has been processed
+	std::vector<bool> processed(points.size(), false);  // For checking if a point has been processed
 
 	for (int id {0}; id<points.size(); id++){
 
 	    // If point has not been processed then create cluster and call proximity
-        if (processed.find(id) == processed.end()){
+        if (!processed[id]){
             std::vector<int> cluster;
-            proximity(points, id, &processed, &cluster, tree, distanceTol);
+            proximity(points, id, processed, &cluster, tree, distanceTol);
             clusters.emplace_back(cluster);
         }
 	}
@@ -181,3 +179,49 @@ int main ()
   	}
   	
 }
+
+
+//// Using unordered set
+//void proximity(const std::vector<std::vector<float>>& points, int id, std::unordered_set<int>* processed, std::vector<int>* cluster, KdTree* tree, float distanceTol){
+//
+//    // Mark point as processed
+//    processed->emplace(id);
+//
+//    // Add point id to cluster
+//    cluster->emplace_back(id);
+//
+//    // Find nearby points to point at index id
+//    const std::vector<float>& point = points.at(id);
+//    std::vector<int> nearbyPoints = tree->search(point, distanceTol);
+//
+//    for (auto idx : nearbyPoints){
+//
+//        // If point has not been processed then recursively call proximity
+//        if (processed->find(idx) == processed->end()){
+//            proximity(points, idx, processed, cluster, tree, distanceTol);
+//        }
+//    }
+//}
+//
+//std::vector<std::vector<int>> euclideanCluster(const std::vector<std::vector<float>>& points, KdTree* tree, float distanceTol)
+//{
+//
+//    // TODO: Fill out this function to return list of indices for each cluster
+//
+//    std::vector<std::vector<int>> clusters;
+//
+//    std::unordered_set<int> processed;  // For checking if a point has been processed
+//
+//    for (int id {0}; id<points.size(); id++){
+//
+//        // If point has not been processed then create cluster and call proximity
+//        if (processed.find(id) == processed.end()){
+//            std::vector<int> cluster;
+//            proximity(points, id, &processed, &cluster, tree, distanceTol);
+//            clusters.emplace_back(cluster);
+//        }
+//    }
+//
+//    return clusters;
+//
+//}
