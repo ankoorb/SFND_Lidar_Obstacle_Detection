@@ -49,6 +49,7 @@ void simpleHighway(pcl::visualization::PCLVisualizer::Ptr& viewer)
     bool render_plane = false;
     bool render_cluster = true;
     bool render_box = true;
+    bool render_pca_box = true;
     std::vector<Car> cars = initHighway(renderScene, viewer);
     
     // TODO:: Create lidar sensor
@@ -81,8 +82,13 @@ void simpleHighway(pcl::visualization::PCLVisualizer::Ptr& viewer)
             renderPointCloud(viewer, cluster, "obstCloud" + std::to_string(clusterId), colors[clusterId]);
         }
         if (render_box){
-            Box box = pointProcessor->BoundingBox(cluster);
-            renderBox(viewer, box, clusterId);
+            if (render_pca_box){
+                BoxQ box = pointProcessor->BoundingBoxQ(cluster);
+                renderBox(viewer, box, clusterId);
+            } else {
+                Box box = pointProcessor->BoundingBox(cluster);
+                renderBox(viewer, box, clusterId);
+            }
         }
         clusterId++;
     }

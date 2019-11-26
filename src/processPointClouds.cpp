@@ -332,6 +332,45 @@ Box ProcessPointClouds<PointT>::BoundingBox(typename pcl::PointCloud<PointT>::Pt
     return box;
 }
 
+template<typename PointT>
+BoxQ ProcessPointClouds<PointT>::BoundingBoxQ(typename pcl::PointCloud<PointT>::Ptr cluster)
+{
+
+    // Compute principal direction
+    Eigen::Vector4f centroid;  // Shape: 4 x 1
+    pcl::compute3DCentroid(*cluster, centroid);  // Output: centroid
+    Eigen::Matrix3f covariance;  // Shape: 3 x 3
+    pcl::computeCovarianceMatrixNormalized(*cluster, centroid, covariance);  // Output: covariance
+    Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> eigenSolver(covariance, Eigen::ComputeEigenvectors);
+    Eigen::Matrix3f eigenVectors = eigenSolver.eigenvectors();  // Shape: 3 x 3
+    eigenVectors.col(2) = eigenVectors.col(0).cross(eigenVectors.col(1));
+
+    // Transform the original clusters to the origin where the principal components correspond to the axes.
+    Eigen::Matrix4f projectionTransform {Eigen::Matrix4f::Identity()}; // Shape: 4 x 4
+    projectionTransform.block<3,3>(0,0) = eigenVectors.transpose();  // Assign block of 3 x 3 starting at (0, 0)
+    projectionTransform.block<3,1>(0,3) = -1.0f * (projectionTransform.block<3,3>(0,0) * centroid.head<3>());
+    typename pcl::PointCloud<PointT>::Ptr cloudPointsProjected (new pcl::PointCloud<PointT>);
+    pcl::transformPointCloud(*cluster, *cloudPointsProjected, projectionTransform);
+
+    // Get the min and max points of the transformed cloud
+    PointT minPoint, maxPoint;
+    pcl::getMinMax3D(*cluster, minPoint, maxPoint);
+    const Eigen::Vector3f meanDiagonal = 0.5f * (maxPoint.getVector3fMap() + minPoint.getVector3fMap());
+
+    // Final transform
+    const Eigen::Quaternionf bboxQuaternion(eigenVectors);
+    const Eigen::Vector3f bboxTransform = eigenVectors * meanDiagonal + centroid.head<3>();
+
+    BoxQ box;
+    box.bboxQuaternion = bboxQuaternion;
+    box.bboxTransform = bboxTransform;
+    box.cube_length = fabs(maxPoint.x-minPoint.x);
+    box.cube_width = fabs(maxPoint.y-minPoint.y);
+    box.cube_height = fabs(maxPoint.z-minPoint.z);
+
+    return box;
+}
+
 
 template<typename PointT>
 void ProcessPointClouds<PointT>::savePcd(typename pcl::PointCloud<PointT>::Ptr cloud, std::string file)
