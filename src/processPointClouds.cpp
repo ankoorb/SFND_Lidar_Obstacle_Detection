@@ -30,11 +30,60 @@ typename pcl::PointCloud<PointT>::Ptr ProcessPointClouds<PointT>::FilterCloud(ty
 
     // TODO:: Fill in the function to do voxel grid point reduction and region based filtering
 
+    // Downsample point cloud using voxel grid point reduction
+    typename pcl::PointCloud<PointT>::Ptr reducedCloud(new pcl::PointCloud<PointT>());
+    pcl::VoxelGrid<PointT> pointReduction;
+    pointReduction.setInputCloud(cloud);
+    pointReduction.setLeafSize(filterRes, filterRes, filterRes);
+    pointReduction.filter(*reducedCloud);
+
+    // Perform RoI based filtering on downsampled point cloud
+    typename pcl::PointCloud<PointT>::Ptr filteredCloud(new pcl::PointCloud<PointT>());
+    pcl::CropBox<PointT> filterRoI(true);
+    filterRoI.setMin(minPoint);
+    filterRoI.setMax(maxPoint);
+    filterRoI.setInputCloud(reducedCloud);
+    filterRoI.filter(*filteredCloud);
+
+    // Perform RoI based filtering on filtered point cloud to remove roof points
+    // http://docs.pointclouds.org/trunk/classpcl_1_1_crop_box.html#af16f9210caa470a230f9a6e0fda41235
+    std::vector<int> roofIndices;
+    pcl::CropBox<PointT> roofRoI(true);
+    Eigen::Vector4f minPt(-1.5, -1.5, -1.0, 1.0);
+    Eigen::Vector4f maxPt(3.0, 1.5, 1.0, 1.0);
+    filterRoI.setMin(minPt);
+    filterRoI.setMax(maxPt);
+    filterRoI.setInputCloud(filteredCloud);
+    filterRoI.filter(roofIndices);
+
+    // Filter roof points from filtered point cloud
+    typename pcl::PointCloud<PointT>::Ptr roofFilteredCloud (new pcl::PointCloud<PointT>());
+    pcl::PointIndices::Ptr roofInliers {new pcl::PointIndices ()};
+    for (int i {0}; i<roofIndices.size(); i++){
+        roofInliers->indices.emplace_back(roofIndices[i]);
+    }
+
+    pcl::ExtractIndices<PointT> extract;
+
+    // Extract the inliers: // http://pointclouds.org/documentation/tutorials/planar_segmentation.php
+    extract.setInputCloud(filteredCloud);
+    extract.setIndices(roofInliers);
+    extract.setNegative(true);
+    extract.filter(*filteredCloud);
+
+    /*
+    std::cout << "cloud size: " << cloud->points.size() << std::endl;
+    std::cout << "reducedCloud size: " << reducedCloud->points.size() << std::endl;
+    std::cout << "filteredCloud (w/ roof) size: " << filteredCloud->points.size() << std::endl;
+    std::cout << "roofIndices size: " << roofIndices.size() << std::endl;
+    std::cout << "filteredCloud (w/o roof) size: " << filteredCloud->points.size() << std::endl;
+    */
+
     auto endTime = std::chrono::steady_clock::now();
     auto elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
     std::cout << "filtering took " << elapsedTime.count() << " milliseconds" << std::endl;
 
-    return cloud;
+    return filteredCloud;
 
 }
 
@@ -336,7 +385,15 @@ template<typename PointT>
 BoxQ ProcessPointClouds<PointT>::BoundingBoxQ(typename pcl::PointCloud<PointT>::Ptr cluster)
 {
 
-    // Compute principal direction
+    //// From user Nicola Fioraio on the PCL forums. http://www.pcl-users.org/Finding-oriented-bounding-box-of-a-cloud-td4024616.html
+    /*
+    1) compute the centroid (c0, c1, c2) and the normalized covariance
+    2) compute the eigenvectors e0, e1, e2. The reference system will be (e0, e1, e0 X e1) --- note: e0 X e1 = +/- e2
+    3) move the points in that RF --- note: the transformation given by the rotation matrix (e0, e1, e0 X e1) & (c0, c1, c2) must be inverted
+    4) compute the max, the min and the center of the diagonal
+    5) given a box centered at the origin with size (max_pt.x - min_pt.x, max_pt.y - min_pt.y, max_pt.z - min_pt.z) the transformation you have to apply is Rotation = (e0, e1, e0 X e1) & Translation = Rotation * center_diag + (c0, c1, c2)
+    */
+    // Compute principal directions
     Eigen::Vector4f centroid;  // Shape: 4 x 1
     pcl::compute3DCentroid(*cluster, centroid);  // Output: centroid
     Eigen::Matrix3f covariance;  // Shape: 3 x 3
@@ -345,12 +402,16 @@ BoxQ ProcessPointClouds<PointT>::BoundingBoxQ(typename pcl::PointCloud<PointT>::
     Eigen::Matrix3f eigenVectors = eigenSolver.eigenvectors();  // Shape: 3 x 3
     eigenVectors.col(2) = eigenVectors.col(0).cross(eigenVectors.col(1));
 
+    std::cout << "eigenVectors:\n" << eigenVectors << std::endl;
+    std::cout << "eigenValues:\n" << eigenSolver.eigenvalues() << std::endl;
+
     // Transform the original clusters to the origin where the principal components correspond to the axes.
-    Eigen::Matrix4f projectionTransform {Eigen::Matrix4f::Identity()}; // Shape: 4 x 4
+    Eigen::Matrix4f projectionTransform(Eigen::Matrix4f::Identity()); // Shape: 4 x 4
     projectionTransform.block<3,3>(0,0) = eigenVectors.transpose();  // Assign block of 3 x 3 starting at (0, 0)
     projectionTransform.block<3,1>(0,3) = -1.0f * (projectionTransform.block<3,3>(0,0) * centroid.head<3>());
     typename pcl::PointCloud<PointT>::Ptr cloudPointsProjected (new pcl::PointCloud<PointT>);
     pcl::transformPointCloud(*cluster, *cloudPointsProjected, projectionTransform);
+    std::cout << "projectionTransform\n" << projectionTransform << std::endl;
 
     // Get the min and max points of the transformed cloud
     PointT minPoint, maxPoint;
@@ -360,6 +421,10 @@ BoxQ ProcessPointClouds<PointT>::BoundingBoxQ(typename pcl::PointCloud<PointT>::
     // Final transform
     const Eigen::Quaternionf bboxQuaternion(eigenVectors);
     const Eigen::Vector3f bboxTransform = eigenVectors * meanDiagonal + centroid.head<3>();
+
+    std::cout << "bboxTransform:\n" << bboxTransform << std::endl;
+    std::cout << "maxPoint:\n" << maxPoint << std::endl;
+    std::cout << "minPoint:\n" << minPoint << std::endl;
 
     BoxQ box;
     box.bboxQuaternion = bboxQuaternion;

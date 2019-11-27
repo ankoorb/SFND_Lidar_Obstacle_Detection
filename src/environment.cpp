@@ -94,6 +94,32 @@ void simpleHighway(pcl::visualization::PCLVisualizer::Ptr& viewer)
     }
 }
 
+void cityBlock(pcl::visualization::PCLVisualizer::Ptr& viewer){
+
+    // ----------------------------------------------------
+    // -----Open 3D viewer and display City Block     -----
+    // ----------------------------------------------------
+
+    ProcessPointClouds<pcl::PointXYZI>* pointProcessorI = new ProcessPointClouds<pcl::PointXYZI>();
+    pcl::PointCloud<pcl::PointXYZI>::Ptr inputCloud = pointProcessorI->loadPcd("../src/sensors/data/pcd/data_1/0000000000.pcd");
+    //renderPointCloud(viewer,inputCloud,"inputCloud");
+
+    // Filter cloud
+    std::cout << "Number of points before filtering -> inputCloud: " << inputCloud->points.size() << std::endl;
+    pcl::PointXYZI minPoint, maxPoint;
+    pcl::getMinMax3D(*inputCloud, minPoint, maxPoint);
+    Eigen::Vector4f minPt(minPoint.x/8, minPoint.y/8, minPoint.z, 1.0);
+    Eigen::Vector4f maxPt(maxPoint.x/2, maxPoint.y/4, maxPoint.z, 1.0);
+    std::cout << "maxPoint:\n" << maxPoint << std::endl;
+    std::cout << "minPoint:\n" << minPoint << std::endl;
+
+    // filterRes = 0.25, minPoint.coordinates/8, maxPoint.coordinates/4 seem to work well
+    pcl::PointCloud<pcl::PointXYZI>::Ptr filteredCloud = pointProcessorI->FilterCloud(inputCloud, 0.25, minPt, maxPt);
+    renderPointCloud(viewer, filteredCloud, "filteredCloud");
+    std::cout << "Number of points after filtering -> filteredCloud: " << filteredCloud->points.size() << std::endl;
+
+}
+
 
 //setAngle: SWITCH CAMERA ANGLE {XY, TopDown, Side, FPS}
 void initCamera(CameraAngle setAngle, pcl::visualization::PCLVisualizer::Ptr& viewer)
@@ -121,12 +147,17 @@ void initCamera(CameraAngle setAngle, pcl::visualization::PCLVisualizer::Ptr& vi
 
 int main (int argc, char** argv)
 {
+    bool renderCityBlock = true;
     std::cout << "starting enviroment" << std::endl;
 
     pcl::visualization::PCLVisualizer::Ptr viewer (new pcl::visualization::PCLVisualizer ("3D Viewer"));
     CameraAngle setAngle = XY;
     initCamera(setAngle, viewer);
-    simpleHighway(viewer);
+    if (renderCityBlock){
+        cityBlock(viewer);
+    } else {
+        simpleHighway(viewer);
+    }
 
     while (!viewer->wasStopped ())
     {
