@@ -117,13 +117,13 @@ void cityBlock(pcl::visualization::PCLVisualizer::Ptr& viewer){
     pcl::PointXYZI minPoint, maxPoint;
     pcl::getMinMax3D(*inputCloud, minPoint, maxPoint);
 
-    // filterRes = 0.2 or 0.25, minPoint.coordinates/8, maxPoint.coordinates/4 seem to work well
+    // filterRes = 0.25, minPoint.coordinates/{6,6,10}, maxPoint.coordinates/{2,6,10} seem to work well
     Eigen::Vector4f minPt(minPoint.x/6, minPoint.y/6, minPoint.z/10, 1.0);
     Eigen::Vector4f maxPt(maxPoint.x/2, maxPoint.y/6, maxPoint.z/10, 1.0);
     std::cout << "maxPoint:\n" << maxPoint << std::endl;
     std::cout << "minPoint:\n" << minPoint << std::endl;
 
-    pcl::PointCloud<pcl::PointXYZI>::Ptr filteredCloud = pointProcessorI->FilterCloud(inputCloud, 0.2, minPt, maxPt);
+    pcl::PointCloud<pcl::PointXYZI>::Ptr filteredCloud = pointProcessorI->FilterCloud(inputCloud, 0.25, minPt, maxPt);
     renderPointCloud(viewer, filteredCloud, "filteredCloud");
     std::cout << "Number of points after filtering -> filteredCloud: " << filteredCloud->points.size() << std::endl;
 
@@ -176,10 +176,11 @@ void cityBlock(pcl::visualization::PCLVisualizer::Ptr& viewer, ProcessPointCloud
     pcl::PointXYZI minPoint, maxPoint;
     pcl::getMinMax3D(*inputCloud, minPoint, maxPoint);
 
+    // filterRes = 0.25, minPoint.coordinates/{6,6,10}, maxPoint.coordinates/{2,6,10} seem to work well
     Eigen::Vector4f minPt(minPoint.x/6, minPoint.y/6, minPoint.z/10, 1.0);
     Eigen::Vector4f maxPt(maxPoint.x/2, maxPoint.y/6, maxPoint.z/10, 1.0);
 
-    pcl::PointCloud<pcl::PointXYZI>::Ptr filteredCloud = pointProcessorI->FilterCloud(inputCloud, 0.2, minPt, maxPt);
+    pcl::PointCloud<pcl::PointXYZI>::Ptr filteredCloud = pointProcessorI->FilterCloud(inputCloud, 0.25, minPt, maxPt);
 
     //// Step 1: Segment filtered cloud into 2 parts: Road and Obstacles
     std::pair<pcl::PointCloud<pcl::PointXYZI>::Ptr, pcl::PointCloud<pcl::PointXYZI>::Ptr> segmentedCloud = pointProcessorI->SegmentPlane(filteredCloud, 100, 0.2);
