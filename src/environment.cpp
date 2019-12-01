@@ -117,9 +117,9 @@ void cityBlock(pcl::visualization::PCLVisualizer::Ptr& viewer){
     pcl::PointXYZI minPoint, maxPoint;
     pcl::getMinMax3D(*inputCloud, minPoint, maxPoint);
 
-    // filterRes = 0.25, minPoint.coordinates/{6,6,10}, maxPoint.coordinates/{2,6,10} seem to work well
-    Eigen::Vector4f minPt(minPoint.x/6, minPoint.y/6, minPoint.z/10, 1.0);
-    Eigen::Vector4f maxPt(maxPoint.x/2, maxPoint.y/6, maxPoint.z/10, 1.0);
+    // filterRes = 0.25, minPoint.coordinates/{7.5,5,12.5}, maxPoint.coordinates/{2.5,4.5,2.5} seem to work well
+    Eigen::Vector4f minPt(minPoint.x/7.5, minPoint.y/5, minPoint.z/12.5, 1.0);
+    Eigen::Vector4f maxPt(maxPoint.x/2.5, maxPoint.y/4.5, maxPoint.z/2.5, 1.0);
     std::cout << "maxPoint:\n" << maxPoint << std::endl;
     std::cout << "minPoint:\n" << minPoint << std::endl;
 
@@ -128,7 +128,7 @@ void cityBlock(pcl::visualization::PCLVisualizer::Ptr& viewer){
     std::cout << "Number of points after filtering -> filteredCloud: " << filteredCloud->points.size() << std::endl;
 
     //// Step 1: Segment filtered cloud into 2 parts: Road and Obstacles
-    std::pair<pcl::PointCloud<pcl::PointXYZI>::Ptr, pcl::PointCloud<pcl::PointXYZI>::Ptr> segmentedCloud = pointProcessorI->SegmentPlane(filteredCloud, 100, 0.2);
+    std::pair<pcl::PointCloud<pcl::PointXYZI>::Ptr, pcl::PointCloud<pcl::PointXYZI>::Ptr> segmentedCloud = pointProcessorI->SegmentPlane(filteredCloud, 50, 0.25);
     if (render_obst){
         renderPointCloud(viewer, segmentedCloud.first, "obstCloud", Color(1,0,0));
     }
@@ -137,7 +137,7 @@ void cityBlock(pcl::visualization::PCLVisualizer::Ptr& viewer){
     }
 
     //// Step 2: Cluster the obstacle cloud
-    std::vector<pcl::PointCloud<pcl::PointXYZI>::Ptr> cloudClusters = pointProcessorI->Clustering(segmentedCloud.first, 0.75, 25, 1000);
+    std::vector<pcl::PointCloud<pcl::PointXYZI>::Ptr> cloudClusters = pointProcessorI->Clustering(segmentedCloud.first, 0.55, 10, 500);
 
     // Colors: R, B, Y
     std::vector<Color> colors = {Color(1, 0, 0), Color(0, 0, 1), Color(1, 1, 0)};
@@ -176,14 +176,14 @@ void cityBlock(pcl::visualization::PCLVisualizer::Ptr& viewer, ProcessPointCloud
     pcl::PointXYZI minPoint, maxPoint;
     pcl::getMinMax3D(*inputCloud, minPoint, maxPoint);
 
-    // filterRes = 0.25, minPoint.coordinates/{6,6,10}, maxPoint.coordinates/{2,6,10} seem to work well
-    Eigen::Vector4f minPt(minPoint.x/6, minPoint.y/6, minPoint.z/10, 1.0);
-    Eigen::Vector4f maxPt(maxPoint.x/2, maxPoint.y/6, maxPoint.z/10, 1.0);
+    // filterRes = 0.25, minPoint.coordinates/{7.5,5.0,12.5}, maxPoint.coordinates/{2.5,4.5,2.5} seem to work well
+    Eigen::Vector4f minPt(minPoint.x/7.5, minPoint.y/5.0, minPoint.z/12.5, 1.0);
+    Eigen::Vector4f maxPt(maxPoint.x/2.5, maxPoint.y/4.5, maxPoint.z/2.5, 1.0);
 
     pcl::PointCloud<pcl::PointXYZI>::Ptr filteredCloud = pointProcessorI->FilterCloud(inputCloud, 0.25, minPt, maxPt);
 
     //// Step 1: Segment filtered cloud into 2 parts: Road and Obstacles
-    std::pair<pcl::PointCloud<pcl::PointXYZI>::Ptr, pcl::PointCloud<pcl::PointXYZI>::Ptr> segmentedCloud = pointProcessorI->SegmentPlane(filteredCloud, 100, 0.2);
+    std::pair<pcl::PointCloud<pcl::PointXYZI>::Ptr, pcl::PointCloud<pcl::PointXYZI>::Ptr> segmentedCloud = pointProcessorI->SegmentPlane(filteredCloud, 50, 0.25);
     if (render_obst){
         renderPointCloud(viewer, segmentedCloud.first, "obstCloud", Color(1,0,0));
     }
@@ -192,7 +192,7 @@ void cityBlock(pcl::visualization::PCLVisualizer::Ptr& viewer, ProcessPointCloud
     }
 
     //// Step 2: Cluster the obstacle cloud
-    std::vector<pcl::PointCloud<pcl::PointXYZI>::Ptr> cloudClusters = pointProcessorI->Clustering(segmentedCloud.first, 0.75, 25, 1000);
+    std::vector<pcl::PointCloud<pcl::PointXYZI>::Ptr> cloudClusters = pointProcessorI->Clustering(segmentedCloud.first, 0.55, 10, 500);
 
     // Colors: R, B, Y
     std::vector<Color> colors = {Color(1, 0, 0), Color(0, 1, 0), Color(0, 0, 1), Color(1, 1, 0)};
